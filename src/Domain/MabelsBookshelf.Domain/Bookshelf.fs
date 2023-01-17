@@ -1,0 +1,2 @@
+﻿module MabelsBookshelf.Domain.Bookshelf
+
