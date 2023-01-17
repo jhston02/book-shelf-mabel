@@ -11,7 +11,11 @@ type Status =
     | Deleted
 
 type Event =
-    | BookCreated of {|Id: Id ; ISBN: ISBN ; OwnerId: OwnerId ; TotalPages: uint16 |}
+    | BookCreated of
+        {| Id: Id
+           ISBN: ISBN
+           OwnerId: OwnerId
+           TotalPages: uint16 |}
     | BookDeleted of {| Id: Id; OwnerId: OwnerId |}
     | BookFinished of {| Id: Id; OwnerId: OwnerId |}
     | BookStarted of {| Id: Id; OwnerId: OwnerId |}
@@ -27,36 +31,35 @@ type Book =
       ISBN: ISBN
       OwnerId: OwnerId
       TotalPages: uint16
-      Status : Status
-      Events : Event list }
+      Status: Status
+      Events: Event list }
 
-    with
-        static member internal Create id isbn ownerId totalPages events =
-            {Id = id
-             ISBN = isbn
-             OwnerId = ownerId
-             TotalPages = totalPages
-             Status = Want
-             Events = events}
-        static member Default =
-            {Id = Id.defaultId
-             ISBN = ISBN.defaultISBN
-             OwnerId = OwnerId.defaultOwnerId
-             TotalPages = 0us
-             Status = Want
-             Events = []}
-        member this.GetEventsInOrder() =
-            List.rev this.Events
+    static member internal Create id isbn ownerId totalPages events =
+        { Id = id
+          ISBN = isbn
+          OwnerId = ownerId
+          TotalPages = totalPages
+          Status = Want
+          Events = events }
+
+    static member Default =
+        { Id = Id.defaultId
+          ISBN = ISBN.defaultISBN
+          OwnerId = OwnerId.defaultOwnerId
+          TotalPages = 0us
+          Status = Want
+          Events = [] }
+
+    member this.GetEventsInOrder() = List.rev this.Events
 
 
 module Book =
-    let private updateBook book state =
-        {book with Status = state}
+    let private updateBook book state = { book with Status = state }
 
 
     let apply book event =
         match event with
-        | BookCreated bookInfo -> Book.Create bookInfo.Id bookInfo.ISBN bookInfo.OwnerId bookInfo.TotalPages [event]
+        | BookCreated bookInfo -> Book.Create bookInfo.Id bookInfo.ISBN bookInfo.OwnerId bookInfo.TotalPages [ event ]
         | BookDeleted _ -> updateBook book Deleted
         | BookFinished _ -> updateBook book Finished
         | BookStarted _ -> updateBook book (Reading 0us)
@@ -64,38 +67,74 @@ module Book =
         | BookMarkedAsWanted _ -> updateBook book Want
         | ReadToPage eventInfo -> updateBook book (Reading eventInfo.PageNumber)
 
-    let private whenEvent ({Events = events} as book) event =
-        let book = {book with Events = event :: events}
+    let private whenEvent ({ Events = events } as book) event =
+        let book =
+            { book with Events = event :: events }
+
         apply book event
 
     let startReading book =
         match book.Status with
         | Reading _ -> Error "Already reading book"
-        | _ -> Ok (whenEvent book (BookStarted {| Id = book.Id; OwnerId = book.OwnerId |}))
+        | _ ->
+            Ok(
+                whenEvent
+                    book
+                    (BookStarted
+                        {| Id = book.Id
+                           OwnerId = book.OwnerId |})
+            )
 
     let finishReading book =
         match book.Status with
         | Finished -> Error "Already finished book"
         | DNF -> Error "Book not finished"
-        | _ -> Ok (whenEvent book (BookFinished {| Id = book.Id; OwnerId = book.OwnerId |}))
+        | _ ->
+            Ok(
+                whenEvent
+                    book
+                    (BookFinished
+                        {| Id = book.Id
+                           OwnerId = book.OwnerId |})
+            )
 
     let quitReading book =
         match book.Status with
         | DNF _ -> Error "Already quit book"
-        | _ -> Ok (whenEvent book (BookQuit {| Id = book.Id; OwnerId = book.OwnerId |}))
+        | _ ->
+            Ok(
+                whenEvent
+                    book
+                    (BookQuit
+                        {| Id = book.Id
+                           OwnerId = book.OwnerId |})
+            )
 
     let wantToRead book =
         match book.Status with
         | Want _ -> Error "Already want book"
-        | _ -> Ok (whenEvent book (BookMarkedAsWanted {| Id = book.Id; OwnerId = book.OwnerId |}))
+        | _ ->
+            Ok(
+                whenEvent
+                    book
+                    (BookMarkedAsWanted
+                        {| Id = book.Id
+                           OwnerId = book.OwnerId |})
+            )
 
-    let private finishBookIfReadToEnd toPage book  =
+    let private finishBookIfReadToEnd toPage book =
         if toPage = book.TotalPages then
             finishReading book
-        else Ok book
+        else
+            Ok book
 
     let private readToPageImpl book toPage =
-        whenEvent book (ReadToPage {| Id = book.Id; OwnerId = book.OwnerId ; PageNumber = toPage |})
+        whenEvent
+            book
+            (ReadToPage
+                {| Id = book.Id
+                   OwnerId = book.OwnerId
+                   PageNumber = toPage |})
         |> finishBookIfReadToEnd toPage
 
     let rec readToPage book toPage =
@@ -106,14 +145,22 @@ module Book =
             | Reading pageNumber when toPage = pageNumber -> Error "Already read to that page"
             | Reading _ -> readToPageImpl book toPage
             | Finished -> Error "Already finished book"
-            | _ -> match startReading book with
-                   | Ok result -> readToPage result toPage
-                   | error -> error
+            | _ ->
+                match startReading book with
+                | Ok result -> readToPage result toPage
+                | error -> error
 
     let deleteBook book =
         match book.Status with
         | Deleted _ -> Error "Already deleted book"
-        | _ -> Ok (whenEvent book (BookDeleted {| Id = book.Id; OwnerId = book.OwnerId |}))
+        | _ ->
+            Ok(
+                whenEvent
+                    book
+                    (BookDeleted
+                        {| Id = book.Id
+                           OwnerId = book.OwnerId |})
+            )
 
     let createBook id isbn ownerId totalPages =
         monad' {
@@ -121,5 +168,12 @@ module Book =
             let! ownerId = OwnerId.create ownerId
             let! id = Id.create id
 
-            return whenEvent Book.Default (BookCreated {|Id = id ; ISBN = isbn ; OwnerId = ownerId ; TotalPages = totalPages |})
+            return
+                whenEvent
+                    Book.Default
+                    (BookCreated
+                        {| Id = id
+                           ISBN = isbn
+                           OwnerId = ownerId
+                           TotalPages = totalPages |})
         }

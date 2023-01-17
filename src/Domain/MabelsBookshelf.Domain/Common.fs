@@ -20,24 +20,19 @@ module ISBN =
 
     let create isbn =
         if String.length isbn = 13 then
-            Ok (ISBN isbn)
+            Ok(ISBN isbn)
         else
             Error "Invalid isbn"
 
-    let defaultISBN =
-        ISBN "0000000000000"
+    let defaultISBN = ISBN "0000000000000"
 
 
 module OwnerId =
-    let create ownerId =
-        Ok (OwnerId ownerId)
+    let create ownerId = Ok(OwnerId ownerId)
 
-    let defaultOwnerId =
-        OwnerId ""
+    let defaultOwnerId = OwnerId ""
 
 module Id =
-    let create id =
-        Ok (Id id)
+    let create id = Ok(Id id)
 
-    let defaultId =
-        Id ""
+    let defaultId = Id ""
