@@ -1,5 +1,6 @@
 ﻿namespace MabelsBookshelf.Domain
 
+open MabelsBookshelf.Domain
 open MabelsBookshelf.Domain.Common
 open FSharpPlus
 
@@ -34,14 +35,6 @@ type Book =
       Status: Status
       Events: Event list }
 
-    static member internal Create id isbn ownerId totalPages events =
-        { Id = id
-          ISBN = isbn
-          OwnerId = ownerId
-          TotalPages = totalPages
-          Status = Want
-          Events = events }
-
     static member Default =
         { Id = Id.defaultId
           ISBN = ISBN.defaultISBN
@@ -59,7 +52,13 @@ module Book =
 
     let apply book event =
         match event with
-        | BookCreated bookInfo -> Book.Create bookInfo.Id bookInfo.ISBN bookInfo.OwnerId bookInfo.TotalPages [ event ]
+        | BookCreated bookInfo ->
+            { Id = bookInfo.Id
+              ISBN = bookInfo.ISBN
+              OwnerId = bookInfo.OwnerId
+              TotalPages = bookInfo.TotalPages
+              Events = [ event ]
+              Status = Want }
         | BookDeleted _ -> updateBook book Deleted
         | BookFinished _ -> updateBook book Finished
         | BookStarted _ -> updateBook book (Reading 0us)
