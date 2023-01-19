@@ -48,6 +48,7 @@ let book =
                     let result = Book.startReading book
 
                     Expect.isOk result "Book is ok"
+
                  testCase "Start reading already reading book returns error"
                  <| fun _ ->
                     let book = {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Reading 0us ; Events = []}
@@ -55,6 +56,7 @@ let book =
                     let result = Book.startReading book
 
                     Expect.isError result "Book is errored"
+
                  testCase "Start reading book contains StartedReading"
                  <| fun _ ->
                     let book = {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Want ; Events = []}
