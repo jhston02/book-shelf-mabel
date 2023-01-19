@@ -128,13 +128,16 @@ module Book =
             Ok book
 
     let private readToPageImpl book toPage =
-        whenEvent
-            book
-            (ReadToPage
-                {| Id = book.Id
-                   OwnerId = book.OwnerId
-                   PageNumber = toPage |})
-        |> finishBookIfReadToEnd toPage
+        if toPage > 0us then
+            whenEvent
+                book
+                (ReadToPage
+                    {| Id = book.Id
+                       OwnerId = book.OwnerId
+                       PageNumber = toPage |})
+            |> finishBookIfReadToEnd toPage
+        else
+            Ok(book)
 
     let rec readToPage book toPage =
         if toPage > book.TotalPages then
