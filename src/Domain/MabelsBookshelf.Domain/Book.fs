@@ -128,19 +128,16 @@ module Book =
             Ok book
 
     let private readToPageImpl book toPage =
-        if toPage > 0us then
-            whenEvent
-                book
-                (ReadToPage
-                    {| Id = book.Id
-                       OwnerId = book.OwnerId
-                       PageNumber = toPage |})
-            |> finishBookIfReadToEnd toPage
-        else
-            Ok(book)
+        whenEvent
+            book
+            (ReadToPage
+                {| Id = book.Id
+                   OwnerId = book.OwnerId
+                   PageNumber = toPage |})
+        |> finishBookIfReadToEnd toPage
 
     let rec readToPage book toPage =
-        if toPage > book.TotalPages then
+        if toPage > book.TotalPages || toPage <= 0us then
             Error "Please enter a valid page number"
         else
             match book.Status with
