@@ -2,6 +2,7 @@
 
 open FSharpPlus
 
+
 type Author = private Author of string
 
 type ISBN = private ISBN of string
@@ -36,3 +37,8 @@ module Id =
     let create id = Ok(Id id)
 
     let defaultId = Id ""
+
+module StateMachines =
+    type FSM<'Input, 'Output> = FSM of 'Output
+    type Evolve<'Input, 'Output, 'FSM> = 'Input -> 'FSM -> 'Output * 'FSM
+    type Aggregate<'Command, 'Event, 'State> = FSM<'Command, 'Event list * 'State>

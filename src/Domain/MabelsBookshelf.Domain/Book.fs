@@ -1,6 +1,5 @@
 ﻿namespace MabelsBookshelf.Domain
 
-open MabelsBookshelf.Domain
 open MabelsBookshelf.Domain.Common
 open FSharpPlus
 
