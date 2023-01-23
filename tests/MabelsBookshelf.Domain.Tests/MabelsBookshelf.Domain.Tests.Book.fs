@@ -33,17 +33,18 @@ let book =
                     let (Ok book) =
                         Book.createBook "test" "0000000000000" "test" 0us
 
-                    let event =
-                        List.head (book.GetEventsInOrder())
+                    let (events, _) = fst book
 
-                    match event with
+                    let test = (List.head events)
+
+                    match test with
                     | BookCreated _ -> Expect.isTrue true "Is book created event"
                     | _ -> Expect.isTrue false "Is not book created event" ]
           testList
               "Start reading"
                [ testCase "Start reading wanted book returns ok"
                  <| fun _ ->
-                    let book = {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Want ; Events = []}
+                    let book = Book.FromBookInfo {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Want ;}
 
                     let result = Book.startReading book
 
@@ -51,7 +52,7 @@ let book =
 
                  testCase "Start reading already reading book returns error"
                  <| fun _ ->
-                    let book = {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Reading 0us ; Events = []}
+                    let book =  Book.FromBookInfo {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Reading 0us ;}
 
                     let result = Book.startReading book
 
@@ -59,14 +60,15 @@ let book =
 
                  testCase "Start reading book contains StartedReading"
                  <| fun _ ->
-                    let book = {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Want ; Events = []}
+                    let book =  Book.FromBookInfo {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Want ;}
 
-                    let result = Result.defaultValue book (Book.startReading book)
+                    let result = Result.defaultValue (([], BookInfo.Default), book) (Book.startReading book)
 
-                    let event =
-                        List.head (result.GetEventsInOrder())
+                    let (events, _) = fst result
 
-                    match event with
+                    let test = (List.head events)
+
+                    match test with
                     | BookStarted _ -> Expect.isTrue true "Is BookStarted event"
                     | _ -> Expect.isTrue false "Is not BookStarted event"
                 ]
@@ -74,7 +76,7 @@ let book =
               "Finish reading"
                [ testCase "Finish reading wanted book returns ok"
                  <| fun _ ->
-                    let book = {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Want ; Events = []}
+                    let book = Book.FromBookInfo {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Want}
 
                     let result = Book.finishReading book
 
@@ -82,7 +84,7 @@ let book =
 
                  testCase "Finish reading already finished book returns error"
                  <| fun _ ->
-                    let book = {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Finished ; Events = []}
+                    let book = Book.FromBookInfo {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Finished }
 
                     let result = Book.finishReading book
 
@@ -90,7 +92,7 @@ let book =
 
                  testCase "Finish reading already quit book returns error"
                  <| fun _ ->
-                    let book = {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = DNF ; Events = []}
+                    let book = Book.FromBookInfo {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = DNF }
 
                     let result = Book.finishReading book
 
@@ -98,14 +100,15 @@ let book =
 
                  testCase "Finish reading book contains FinishedReading"
                  <| fun _ ->
-                    let book = {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Want ; Events = []}
+                    let book = Book.FromBookInfo {Id = id ; ISBN = isbn ; TotalPages = 0us ; OwnerId = ownerId ; Status = Want}
 
-                    let result = Result.defaultValue book (Book.finishReading book)
+                    let result = Result.defaultValue (([], BookInfo.Default), book) (Book.finishReading book)
 
-                    let event =
-                        List.head (result.GetEventsInOrder())
+                    let (events, _) = fst result
 
-                    match event with
+                    let test = (List.head events)
+
+                    match test with
                     | BookFinished _ -> Expect.isTrue true "Is BookFinished event"
                     | _ -> Expect.isTrue false "Is not BookFinished event"
                 ]

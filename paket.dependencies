@@ -23,4 +23,4 @@ nuget Fake.Core.Target
 nuget Fake.IO.FileSystem
 nuget Farmer
 
-nuget FSharpPlus
+nuget FsToolkit.ErrorHandling

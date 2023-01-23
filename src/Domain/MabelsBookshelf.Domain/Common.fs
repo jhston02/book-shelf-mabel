@@ -1,6 +1,6 @@
 ﻿module MabelsBookshelf.Domain.Common
 
-open FSharpPlus
+open Microsoft.FSharp.Control
 
 
 type Author = private Author of string
@@ -40,5 +40,6 @@ module Id =
 
 module StateMachines =
     type FSM<'Input, 'Output> = FSM of 'Output
-    type Evolve<'Input, 'Output, 'FSM> = 'Input -> 'FSM -> 'Output * 'FSM
+    type Evolve<'Input, 'Output, 'FSM> = 'Input -> 'FSM -> Result<'Output * 'FSM, string>
     type Aggregate<'Command, 'Event, 'State> = FSM<'Command, 'Event list * 'State>
+    type Apply<'Event, 'Aggregate> = 'Aggregate -> 'Event -> 'Aggregate

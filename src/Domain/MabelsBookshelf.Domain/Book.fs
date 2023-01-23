@@ -1,7 +1,9 @@
 ﻿namespace MabelsBookshelf.Domain
 
 open MabelsBookshelf.Domain.Common
-open FSharpPlus
+open MabelsBookshelf.Domain.Common.StateMachines
+open FsToolkit.ErrorHandling
+
 
 type Status =
     | Want
@@ -10,7 +12,20 @@ type Status =
     | Finished
     | Deleted
 
-type Event =
+type BookInfo =
+    { Id: Id
+      ISBN: ISBN
+      OwnerId: OwnerId
+      TotalPages: uint16
+      Status: Status }
+    static member Default =
+        { Id = Id.defaultId
+          ISBN = ISBN.defaultISBN
+          OwnerId = OwnerId.defaultOwnerId
+          TotalPages = 0us
+          Status = Want }
+
+type BookEvent =
     | BookCreated of
         {| Id: Id
            ISBN: ISBN
@@ -26,152 +41,228 @@ type Event =
            OwnerId: OwnerId
            PageNumber: uint16 |}
 
+
+type BookCommand =
+    | Start
+    | Finish
+    | ReadToPage of uint16
+    | Quit
+    | MarkAsWanted
+    | Delete
+    | Create of
+        {| Id: string
+           ISBN: string
+           OwnerId: string
+           TotalPages: uint16 |}
+
 type Book =
-    { Id: Id
-      ISBN: ISBN
-      OwnerId: OwnerId
-      TotalPages: uint16
-      Status: Status
-      Events: Event list }
-
+    | Book of Aggregate<BookCommand, BookEvent, BookInfo>
     static member Default =
-        { Id = Id.defaultId
-          ISBN = ISBN.defaultISBN
-          OwnerId = OwnerId.defaultOwnerId
-          TotalPages = 0us
-          Status = Want
-          Events = [] }
-
-    member this.GetEventsInOrder() = List.rev this.Events
-
+        Book(FSM([], BookInfo.Default))
+    static member FromBookInfo bookInfo =
+        Book(FSM([], bookInfo))
+type ApplyBookEvent = Apply<BookEvent, BookInfo>
 
 module Book =
-    let private updateBook book state = { book with Status = state }
+    type private EvolveBook = Evolve<BookCommand, BookEvent list * BookInfo, Book>
 
-
-    let apply book event =
-        match event with
-        | BookCreated bookInfo ->
-            { Id = bookInfo.Id
-              ISBN = bookInfo.ISBN
-              OwnerId = bookInfo.OwnerId
-              TotalPages = bookInfo.TotalPages
-              Events = [ event ]
-              Status = Want }
-        | BookDeleted _ -> updateBook book Deleted
-        | BookFinished _ -> updateBook book Finished
-        | BookStarted _ -> updateBook book (Reading 0us)
-        | BookQuit _ -> updateBook book DNF
-        | BookMarkedAsWanted _ -> updateBook book Want
-        | ReadToPage eventInfo -> updateBook book (Reading eventInfo.PageNumber)
-
-    let private whenEvent ({ Events = events } as book) event =
-        let book =
-            { book with Events = event :: events }
-
-        apply book event
-
-    let startReading book =
+    let private handleStartCommand book =
         match book.Status with
-        | Reading _ -> Error "Already reading book"
-        | _ ->
+        | Reading _ -> Error "Book already started"
+        | Want
+        | DNF
+        | Finished
+        | Deleted ->
             Ok(
-                whenEvent
-                    book
-                    (BookStarted
-                        {| Id = book.Id
-                           OwnerId = book.OwnerId |})
+                [ BookStarted
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |} ]
             )
 
-    let finishReading book =
+    let private handleFinishCommand book =
         match book.Status with
-        | Finished -> Error "Already finished book"
-        | DNF -> Error "Book not finished"
-        | _ ->
+        | Finished
+        | DNF -> Error "Cannot finish this book"
+        | Want
+        | Deleted ->
             Ok(
-                whenEvent
-                    book
-                    (BookFinished
-                        {| Id = book.Id
-                           OwnerId = book.OwnerId |})
+                [ BookFinished
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |} ]
+            )
+        | Reading _ ->
+            Ok(
+                [ BookFinished
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |} ]
             )
 
-    let quitReading book =
+    let private handleDeleteCommand book =
         match book.Status with
-        | DNF _ -> Error "Already quit book"
-        | _ ->
+        | Deleted _ -> Error "Book already deleted"
+        | Want
+        | DNF
+        | Want
+        | Finished ->
             Ok(
-                whenEvent
-                    book
-                    (BookQuit
-                        {| Id = book.Id
-                           OwnerId = book.OwnerId |})
+                [ BookDeleted
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |} ]
+            )
+        | Reading _ ->
+            Ok(
+                [ BookDeleted
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |} ]
             )
 
-    let wantToRead book =
+    let private handleQuitCommand book =
         match book.Status with
-        | Want _ -> Error "Already want book"
-        | _ ->
+        | DNF _ -> Error "Book already quit"
+        | Want
+        | Deleted
+        | Want
+        | Finished ->
             Ok(
-                whenEvent
-                    book
-                    (BookMarkedAsWanted
-                        {| Id = book.Id
-                           OwnerId = book.OwnerId |})
+                [ BookQuit
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |} ]
+            )
+        | Reading _ ->
+            Ok(
+                [ BookQuit
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |} ]
             )
 
-    let private finishBookIfReadToEnd toPage book =
-        if toPage = book.TotalPages then
-            finishReading book
-        else
-            Ok book
-
-    let private readToPageImpl book toPage =
-        whenEvent
-            book
-            (ReadToPage
-                {| Id = book.Id
-                   OwnerId = book.OwnerId
-                   PageNumber = toPage |})
-        |> finishBookIfReadToEnd toPage
-
-    let rec readToPage book toPage =
-        if toPage > book.TotalPages || toPage <= 0us then
-            Error "Please enter a valid page number"
-        else
-            match book.Status with
-            | Reading pageNumber when toPage = pageNumber -> Error "Already read to that page"
-            | Reading _ -> readToPageImpl book toPage
-            | Finished -> Error "Already finished book"
-            | _ ->
-                match startReading book with
-                | Ok result -> readToPage result toPage
-                | error -> error
-
-    let deleteBook book =
+    let private handleWantCommand book =
         match book.Status with
-        | Deleted _ -> Error "Already deleted book"
-        | _ ->
+        | Want -> Error "Book already wanted"
+        | DNF
+        | Deleted
+        | Want
+        | Finished ->
             Ok(
-                whenEvent
-                    book
-                    (BookDeleted
-                        {| Id = book.Id
-                           OwnerId = book.OwnerId |})
+                [ BookMarkedAsWanted
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |} ]
+            )
+        | Reading _ ->
+            Ok(
+                [ BookMarkedAsWanted
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |} ]
             )
 
-    let createBook id isbn ownerId totalPages =
-        monad' {
+    let private handleReadToPageCommand pageNumber book =
+        match book.Status, pageNumber with
+        | x, y when y > book.TotalPages || y = 0us -> Error "Invalid page length"
+        | x, y when y = book.TotalPages ->
+            Ok(
+                [ BookFinished
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |}
+                  BookEvent.ReadToPage
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId
+                         PageNumber = pageNumber |} ]
+            )
+        | Reading _, pageNumber ->
+            Ok(
+                [ BookEvent.ReadToPage
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId
+                         PageNumber = pageNumber |} ]
+            )
+        | _, _ ->
+            Ok(
+                [ BookEvent.ReadToPage
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId
+                         PageNumber = pageNumber |}
+                  BookStarted
+                      {| Id = book.Id
+                         OwnerId = book.OwnerId |} ]
+            )
+
+    let private createBookCreatedEvent id isbn ownerId totalPages =
+        result {
             let! isbn = ISBN.create isbn
-            let! ownerId = OwnerId.create ownerId
-            let! id = Id.create id
+            and! ownerId = OwnerId.create ownerId
+            and! id = Id.create id
 
             return
-                whenEvent
-                    Book.Default
-                    (BookCreated
-                        {| Id = id
-                           ISBN = isbn
-                           OwnerId = ownerId
-                           TotalPages = totalPages |})
+                [ BookCreated
+                      {| Id = id
+                         ISBN = isbn
+                         OwnerId = ownerId
+                         TotalPages = totalPages |} ]
         }
+
+    let apply: ApplyBookEvent =
+        fun (book: BookInfo) (event: BookEvent) ->
+            let book' =
+                match event with
+                | BookCreated book ->
+                    { Id = book.Id
+                      ISBN = book.ISBN
+                      OwnerId = book.OwnerId
+                      TotalPages = book.TotalPages
+                      Status = Want }
+                | BookDeleted _ -> { book with Status = Deleted }
+                | BookFinished _ -> { book with Status = Finished }
+                | BookQuit _ -> { book with Status = DNF }
+                | BookStarted _ -> { book with Status = Reading 0us }
+                | BookMarkedAsWanted _ -> { book with Status = Want }
+                | BookEvent.ReadToPage event -> { book with Status = Reading event.PageNumber }
+
+            book'
+
+
+    let private NoEvents = List.empty
+
+    let private evolve: EvolveBook =
+        fun (cmd: BookCommand) (book: Book) ->
+            result {
+                let (Book (FSM (events, book'))) = book
+
+                let! events' =
+                    match cmd, book' with
+                    | Start, x -> handleStartCommand x
+                    | Finish, x -> handleFinishCommand x
+                    | Quit, x -> handleQuitCommand x
+                    | MarkAsWanted, x -> handleWantCommand x
+                    | ReadToPage toPage, x -> handleReadToPageCommand toPage x
+                    | Create bookInfo, x ->
+                        createBookCreatedEvent bookInfo.Id bookInfo.ISBN bookInfo.OwnerId bookInfo.TotalPages
+                    | Delete, x -> handleDeleteCommand x
+
+                let events' = List.rev events'
+
+                let book'' =
+                    events' |> List.fold apply book'
+
+                let output = events', book''
+                return output, (Book(FSM(events @ events', book'')))
+            }
+
+    let startReading book = evolve Start book
+
+    let finishReading book = evolve Finish book
+
+    let quitReading book = evolve Quit book
+
+    let wantToRead book = evolve MarkAsWanted book
+
+    let rec readToPage book toPage = evolve (ReadToPage toPage) book
+
+    let deleteBook book = evolve Delete book
+
+    let createBook id isbn ownerId totalPages =
+        evolve
+            (Create
+                {| Id = id
+                   ISBN = isbn
+                   OwnerId = ownerId
+                   TotalPages = totalPages |})
+            Book.Default

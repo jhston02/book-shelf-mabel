@@ -5,10 +5,9 @@
     </PropertyGroup>
     <ItemGroup>
         <Compile Include="Common.fs" />
-        <Compile Include="Book.fs" />
         <Compile Include="Bookshelf.fs" />
         <Content Include="paket.references" />
-        <Compile Include="Book1.fs" />
+        <Compile Include="Book.fs" />
     </ItemGroup>
     <Import Project="..\..\..\.paket\Paket.Restore.targets" />
 </Project>
