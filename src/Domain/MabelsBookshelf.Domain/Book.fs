@@ -59,8 +59,9 @@ type Book =
     | Book of Aggregate<BookCommand, BookEvent, BookInfo>
     static member Default =
         Book(FSM([], BookInfo.Default))
-    static member FromBookInfo bookInfo =
-        Book(FSM([], bookInfo))
+
+    static member FromBookInfo bookInfo = Book(FSM([], bookInfo))
+
 type ApplyBookEvent = Apply<BookEvent, BookInfo>
 
 module Book =

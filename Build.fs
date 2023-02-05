@@ -7,28 +7,21 @@ open Helpers
 
 initializeContext ()
 
-let sharedPath =
-    Path.getFullName "src/Shared"
+let sharedPath = Path.getFullName "src/Shared"
 
-let serverPath =
-    Path.getFullName "src/Server"
+let serverPath = Path.getFullName "src/Server"
 
-let clientPath =
-    Path.getFullName "src/Client"
+let clientPath = Path.getFullName "src/Client"
 
 let deployPath = Path.getFullName "deploy"
 
-let sharedTestsPath =
-    Path.getFullName "tests/Shared"
+let sharedTestsPath = Path.getFullName "tests/Shared"
 
-let serverTestsPath =
-    Path.getFullName "tests/Server"
+let serverTestsPath = Path.getFullName "tests/Server"
 
-let clientTestsPath =
-    Path.getFullName "tests/Client"
+let clientTestsPath = Path.getFullName "tests/Client"
 
-let domainTestPath =
-    Path.getFullName "tests/MabelsBookshelf.Domain.Tests"
+let domainTestPath = Path.getFullName "tests/MabelsBookshelf.Domain.Tests"
 
 Target.create "Clean" (fun _ ->
     Shell.cleanDir deployPath

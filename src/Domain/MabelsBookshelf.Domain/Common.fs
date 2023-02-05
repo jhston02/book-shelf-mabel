@@ -1,6 +1,5 @@
 ﻿module MabelsBookshelf.Domain.Common
 
-open Microsoft.FSharp.Control
 
 
 type Author = private Author of string
