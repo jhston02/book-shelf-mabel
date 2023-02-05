@@ -156,8 +156,9 @@ module Book =
 
     let private handleReadToPageCommand pageNumber book =
         match book.Status, pageNumber with
-        | x, y when y > book.TotalPages || y = 0us -> Error "Invalid page length"
-        | x, y when y = book.TotalPages ->
+        | _, y when y > book.TotalPages || y = 0us -> Error "Invalid page length"
+        | Reading x, y when y = x -> Error "Already on that pages"
+        | _, y when y = book.TotalPages ->
             Ok(
                 [ BookFinished
                       {| Id = book.Id
